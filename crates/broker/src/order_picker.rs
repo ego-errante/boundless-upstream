@@ -497,135 +497,135 @@ where
         };
 
         // Loop while the cached result is skipped and has a lower exec limit than the current order.
-        let preflight_result = loop {
-            let prover = self.prover.clone();
-            let config = self.config.clone();
-            let request = order.request.clone();
-            let order_id_clone = order_id.clone();
-            let cache_key_clone = cache_key.clone();
+        // let preflight_result = loop {
+        //     let prover = self.prover.clone();
+        //     let config = self.config.clone();
+        //     let request = order.request.clone();
+        //     let order_id_clone = order_id.clone();
+        //     let cache_key_clone = cache_key.clone();
 
-            let cache_cloned = self.preflight_cache.clone();
-            let result = tokio::task::spawn(async move {
+        //     let cache_cloned = self.preflight_cache.clone();
+        //     let result = tokio::task::spawn(async move {
 
-                // Multiple concurrent calls of this coalesce into a single execution. This is done
-                // to prevent multiple preflight jobs starting for the same program/input.
-                // https://docs.rs/moka/latest/moka/sync/struct.Cache.html#concurrent-calls-on-the-same-key-2
-                cache_cloned
-                    .try_get_with(cache_key_clone, async move {
-                        tracing::trace!(
-                            "Starting preflight of {order_id_clone} with exec limit {exec_limit_cycles} mcycles",
-                        );
+        //         // Multiple concurrent calls of this coalesce into a single execution. This is done
+        //         // to prevent multiple preflight jobs starting for the same program/input.
+        //         // https://docs.rs/moka/latest/moka/sync/struct.Cache.html#concurrent-calls-on-the-same-key-2
+        //         cache_cloned
+        //             .try_get_with(cache_key_clone, async move {
+        //                 tracing::trace!(
+        //                     "Starting preflight of {order_id_clone} with exec limit {exec_limit_cycles} mcycles",
+        //                 );
 
-                        // Upload image and input only if not cached
-                        let image_id = upload_image_uri(&prover, &request, &config)
-                            .await
-                            .map_err(|e| OrderPickerErr::FetchImageErr(Arc::new(e)))?;
+        //                 // Upload image and input only if not cached
+        //                 let image_id = upload_image_uri(&prover, &request, &config)
+        //                     .await
+        //                     .map_err(|e| OrderPickerErr::FetchImageErr(Arc::new(e)))?;
 
-                        let input_id = upload_input_uri(&prover, &request, &config)
-                            .await
-                            .map_err(|e| OrderPickerErr::FetchInputErr(Arc::new(e)))?;
+        //                 let input_id = upload_input_uri(&prover, &request, &config)
+        //                     .await
+        //                     .map_err(|e| OrderPickerErr::FetchInputErr(Arc::new(e)))?;
 
-                        // TODO add a future timeout here to put a upper bound on how long to preflight for
-                        match prover
-                            .preflight(
-                                &image_id,
-                                &input_id,
-                                vec![],
-                                Some(exec_limit_cycles),
-                                &order_id_clone,
-                            )
-                            .await
-                        {
-                            Ok(res) => {
-                                tracing::debug!(
-                                    "Preflight execution of {order_id_clone} with session id {} and {} mcycles completed in {} seconds",
-                                    res.id,
-                                    res.stats.total_cycles / 1_000_000,
-                                    res.elapsed_time
-                                );
-                                Ok(PreflightCacheValue::Success {
-                                    exec_session_id: res.id,
-                                    cycle_count: res.stats.total_cycles,
-                                    image_id,
-                                    input_id,
-                                })
-                            }
-                            Err(err) => match err {
-                                ProverError::ProvingFailed(ref err_msg)
-                                    if err_msg.contains("Session limit exceeded") =>
-                                {
-                                    tracing::debug!(
-                                        "Skipping order {order_id_clone} due to session limit exceeded: {}",
-                                        err_msg
-                                    );
-                                    Ok(PreflightCacheValue::Skip {
-                                        cached_limit: exec_limit_cycles,
-                                    })
-                                }
-                                ProverError::ProvingFailed(ref err_msg)
-                                    if err_msg.contains("GuestPanic") =>
-                                {
-                                    Err(OrderPickerErr::GuestPanic(err_msg.clone()))
-                                }
-                                _ => Err(OrderPickerErr::UnexpectedErr(Arc::new(err.into()))),
-                            },
-                        }
-                    })
-                    .await
-            })
-            .await
-            .map_err(|e| OrderPickerErr::UnexpectedErr(Arc::new(e.into())))?;
+        //                 // TODO add a future timeout here to put a upper bound on how long to preflight for
+        //                 match prover
+        //                     .preflight(
+        //                         &image_id,
+        //                         &input_id,
+        //                         vec![],
+        //                         Some(exec_limit_cycles),
+        //                         &order_id_clone,
+        //                     )
+        //                     .await
+        //                 {
+        //                     Ok(res) => {
+        //                         tracing::debug!(
+        //                             "Preflight execution of {order_id_clone} with session id {} and {} mcycles completed in {} seconds",
+        //                             res.id,
+        //                             res.stats.total_cycles / 1_000_000,
+        //                             res.elapsed_time
+        //                         );
+        //                         Ok(PreflightCacheValue::Success {
+        //                             exec_session_id: res.id,
+        //                             cycle_count: res.stats.total_cycles,
+        //                             image_id,
+        //                             input_id,
+        //                         })
+        //                     }
+        //                     Err(err) => match err {
+        //                         ProverError::ProvingFailed(ref err_msg)
+        //                             if err_msg.contains("Session limit exceeded") =>
+        //                         {
+        //                             tracing::debug!(
+        //                                 "Skipping order {order_id_clone} due to session limit exceeded: {}",
+        //                                 err_msg
+        //                             );
+        //                             Ok(PreflightCacheValue::Skip {
+        //                                 cached_limit: exec_limit_cycles,
+        //                             })
+        //                         }
+        //                         ProverError::ProvingFailed(ref err_msg)
+        //                             if err_msg.contains("GuestPanic") =>
+        //                         {
+        //                             Err(OrderPickerErr::GuestPanic(err_msg.clone()))
+        //                         }
+        //                         _ => Err(OrderPickerErr::UnexpectedErr(Arc::new(err.into()))),
+        //                     },
+        //                 }
+        //             })
+        //             .await
+        //     })
+        //     .await
+        //     .map_err(|e| OrderPickerErr::UnexpectedErr(Arc::new(e.into())))?;
 
-            let cached_value = match result {
-                Ok(value) => value,
-                Err(e) => break Err((*e).clone()),
-            };
+        //     let cached_value = match result {
+        //         Ok(value) => value,
+        //         Err(e) => break Err((*e).clone()),
+        //     };
 
-            if let PreflightCacheValue::Skip { cached_limit } = cached_value {
-                if cached_limit < exec_limit_cycles {
-                    tracing::debug!(
-                        "Cached result has insufficient limit for order {order_id} (cached: {}, required: {}), re-running preflight",
-                        cached_limit, exec_limit_cycles
-                    );
-                    self.preflight_cache.invalidate(&cache_key).await;
-                    continue;
-                }
-            }
+        //     if let PreflightCacheValue::Skip { cached_limit } = cached_value {
+        //         if cached_limit < exec_limit_cycles {
+        //             tracing::debug!(
+        //                 "Cached result has insufficient limit for order {order_id} (cached: {}, required: {}), re-running preflight",
+        //                 cached_limit, exec_limit_cycles
+        //             );
+        //             self.preflight_cache.invalidate(&cache_key).await;
+        //             continue;
+        //         }
+        //     }
 
-            break Ok(cached_value);
-        };
+        //     break Ok(cached_value);
+        // };
 
-        // Handle the preflight result
-        let (exec_session_id, cycle_count) = match preflight_result {
-            Ok(PreflightCacheValue::Success {
-                exec_session_id,
-                cycle_count,
-                image_id,
-                input_id,
-            }) => {
-                tracing::debug!(
-                    "Using preflight result for {order_id}: session id {} with {} mcycles",
-                    exec_session_id,
-                    cycle_count / 1_000_000
-                );
+        // // Handle the preflight result
+        // let (exec_session_id, cycle_count) = match preflight_result {
+        //     Ok(PreflightCacheValue::Success {
+        //         exec_session_id,
+        //         cycle_count,
+        //         image_id,
+        //         input_id,
+        //     }) => {
+        //         tracing::debug!(
+        //             "Using preflight result for {order_id}: session id {} with {} mcycles",
+        //             exec_session_id,
+        //             cycle_count / 1_000_000
+        //         );
 
-                // Update order with the uploaded IDs
-                order.image_id = Some(image_id.clone());
-                order.input_id = Some(input_id.clone());
+        //         // Update order with the uploaded IDs
+        //         order.image_id = Some(image_id.clone());
+        //         order.input_id = Some(input_id.clone());
 
-                (exec_session_id, cycle_count)
-            }
-            Ok(PreflightCacheValue::Skip { .. }) => {
-                return Ok(Skip);
-            }
-            Err(err) => {
-                return Err(err);
-            }
-        };
+        //         (exec_session_id, cycle_count)
+        //     }
+        //     Ok(PreflightCacheValue::Skip { .. }) => {
+        //         return Ok(Skip);
+        //     }
+        //     Err(err) => {
+        //         return Err(err);
+        //     }
+        // };
 
         let proof_res = ProofResult {
-            id: exec_session_id,
-            stats: ExecutorResp { total_cycles: cycle_count, ..Default::default() },
+            id: "dummy_exec_session_id".to_string(),
+            stats: ExecutorResp { total_cycles: 100_000_000, ..Default::default() },
             elapsed_time: 0.0,
         };
 
@@ -636,24 +636,24 @@ where
             return Ok(Skip);
         }
 
-        let journal = self
-            .prover
-            .get_preflight_journal(&proof_res.id)
-            .await
-            .context("Failed to fetch preflight journal")?
-            .context("Failed to find preflight journal")?;
+        // let journal = self
+        //     .prover
+        //     .get_preflight_journal(&proof_res.id)
+        //     .await
+        //     .context("Failed to fetch preflight journal")?
+        //     .context("Failed to find preflight journal")?;
 
-        // ensure the journal is a size we are willing to submit on-chain
-        let max_journal_bytes =
-            self.config.lock_all().context("Failed to read config")?.market.max_journal_bytes;
-        if journal.len() > max_journal_bytes {
-            tracing::info!(
-                "Order {order_id} journal larger than set limit ({} > {}), skipping",
-                journal.len(),
-                max_journal_bytes
-            );
-            return Ok(Skip);
-        }
+        // // ensure the journal is a size we are willing to submit on-chain
+        // let max_journal_bytes =
+        //     self.config.lock_all().context("Failed to read config")?.market.max_journal_bytes;
+        // if journal.len() > max_journal_bytes {
+        //     tracing::info!(
+        //         "Order {order_id} journal larger than set limit ({} > {}), skipping",
+        //         journal.len(),
+        //         max_journal_bytes
+        //     );
+        //     return Ok(Skip);
+        // }
 
         // Validate the predicates:
         if !order.request.requirements.predicate.eval(journal.clone()) {
