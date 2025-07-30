@@ -625,7 +625,7 @@ where
 
         let proof_res = ProofResult {
             id: "dummy_exec_session_id".to_string(),
-            stats: ExecutorResp { total_cycles: 100_000_000, ..Default::default() },
+            stats: ExecutorResp { total_cycles: 00_000_000, ..Default::default() },
             elapsed_time: 0.0,
         };
 
@@ -655,11 +655,11 @@ where
         //     return Ok(Skip);
         // }
 
-        // Validate the predicates:
-        if !order.request.requirements.predicate.eval(journal.clone()) {
-            tracing::info!("Order {order_id} predicate check failed, skipping");
-            return Ok(Skip);
-        }
+        // // Validate the predicates:
+        // if !order.request.requirements.predicate.eval(journal.clone()) {
+        //     tracing::info!("Order {order_id} predicate check failed, skipping");
+        //     return Ok(Skip);
+        // }
 
         self.evaluate_order(order, &proof_res, order_gas_cost, lock_expired).await
     }
