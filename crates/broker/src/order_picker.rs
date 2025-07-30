@@ -625,7 +625,7 @@ where
 
         let proof_res = ProofResult {
             id: "dummy_exec_session_id".to_string(),
-            stats: ExecutorResp { total_cycles: 00_000_000, ..Default::default() },
+            stats: ExecutorResp { total_cycles: 100_000_000, ..Default::default() },
             elapsed_time: 0.0,
         };
 
