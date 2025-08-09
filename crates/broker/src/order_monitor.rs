@@ -224,27 +224,27 @@ where
     async fn lock_order(&self, order: &OrderRequest) -> Result<U256, OrderMonitorErr> {
         let request_id = order.request.id;
 
-        let order_status = self
-            .market
-            .get_status(request_id, Some(order.request.expires_at()))
-            .await
-            .context("Failed to get request status")?;
-        if order_status != RequestStatus::Unknown {
-            tracing::info!("Request {:x} not open: {order_status:?}, skipping", request_id);
-            // TODO: fetch some chain data to find out who / and for how much the order
-            // was locked in at
-            return Err(OrderMonitorErr::AlreadyLocked);
-        }
+        // let order_status = self
+        //     .market
+        //     .get_status(request_id, Some(order.request.expires_at()))
+        //     .await
+        //     .context("Failed to get request status")?;
+        // if order_status != RequestStatus::Unknown {
+        //     tracing::info!("Request {:x} not open: {order_status:?}, skipping", request_id);
+        //     // TODO: fetch some chain data to find out who / and for how much the order
+        //     // was locked in at
+        //     return Err(OrderMonitorErr::AlreadyLocked);
+        // }
 
-        let is_locked = self
-            .db
-            .is_request_locked(U256::from(order.request.id))
-            .await
-            .context("Failed to check if request is locked")?;
-        if is_locked {
-            tracing::warn!("Request 0x{:x} already locked: {order_status:?}, skipping", request_id);
-            return Err(OrderMonitorErr::AlreadyLocked);
-        }
+        // let is_locked = self
+        //     .db
+        //     .is_request_locked(U256::from(order.request.id))
+        //     .await
+        //     .context("Failed to check if request is locked")?;
+        // if is_locked {
+        //     tracing::warn!("Request 0x{:x} already locked: {order_status:?}, skipping", request_id);
+        //     return Err(OrderMonitorErr::AlreadyLocked);
+        // }
 
         let conf_priority_gas = {
             let conf = self.config.lock_all().context("Failed to lock config")?;
@@ -634,14 +634,18 @@ where
 
         let mut final_orders: Vec<Arc<OrderRequest>> = Vec::with_capacity(capacity_granted);
 
-        // Get current gas price and available balance
-        let gas_price =
-            self.chain_monitor.current_gas_price().await.context("Failed to get gas price")?;
-        let available_balance_wei = self
-            .provider
-            .get_balance(self.provider.default_signer_address())
-            .await
-            .map_err(|err| OrderMonitorErr::RpcErr(err.into()))?;
+        // // Get current gas price and available balance
+        // let gas_price =
+        //     self.chain_monitor.current_gas_price().await.context("Failed to get gas price")?;
+        // let available_balance_wei = self
+        //     .provider
+        //     .get_balance(self.provider.default_signer_address())
+        //     .await
+        //     .map_err(|err| OrderMonitorErr::RpcErr(err.into()))?;
+
+        // DEGEN MODE: We are using fixed gas price and balance.
+        let gas_price = 600000000; //  0.6 Gwei
+        let available_balance_wei = U256::from_str_radix("10000000000000000", 10).unwrap(); // 0.01 ether
 
         // Calculate gas units required for committed orders
         let committed_orders = self.db.get_committed_orders().await?;
@@ -830,7 +834,9 @@ where
         let mut first_block = 0;
         let mut interval = tokio::time::interval_at(
             tokio::time::Instant::now(),
-            tokio::time::Duration::from_secs(self.block_time),
+            // tokio::time::Duration::from_secs(self.block_time),
+            /// DEGEN MODE: We are using 500ms interval instead of 2 seconds.
+            tokio::time::Duration::from_millis(500),
         );
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 

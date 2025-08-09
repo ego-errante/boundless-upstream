@@ -214,6 +214,11 @@ where
                 RequestStatus::Locked => FulfillmentType::FulfillAfterLockExpire,
                 _ => FulfillmentType::LockAndFulfill,
             };
+            /// DEGEN MODE: We are skipping the order if it is locked, because we are not able to lock it.
+            if fulfillment_type == FulfillmentType::FulfillAfterLockExpire {
+                tracing::info!("Skipping order {request_id:x} reason: order status locked");
+                continue;
+            }
 
             tracing::info!(
                 "Found open order: {request_id:x} with request status: {req_status:?}, preparing to process with fulfillment type: {fulfillment_type:?}",

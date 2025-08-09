@@ -382,16 +382,22 @@ where
             return Ok(Skip);
         }
 
-        if order.fulfillment_type == FulfillmentType::FulfillAfterLockExpire
-            && self
-                .db
-                .is_request_fulfilled(U256::from(order.request.id))
-                .await
-                .context("Failed to check if request is fulfilled before pricing")?
-        {
-            tracing::debug!("Order {order_id} is already fulfilled, skipping");
+        // DEGEN MODE: We are skipping the order if it is FulfillAfterLockExpire.
+        if order.fulfillment_type == FulfillmentType::FulfillAfterLockExpire {
+            tracing::debug!("DEGEN MODE: Order {order_id} is FulfillAfterLockExpire, skipping");
             return Ok(Skip);
         }
+
+        // if order.fulfillment_type == FulfillmentType::FulfillAfterLockExpire
+        //     && self
+        //         .db
+        //         .is_request_fulfilled(U256::from(order.request.id))
+        //         .await
+        //         .context("Failed to check if request is fulfilled before pricing")?
+        // {
+        //     tracing::debug!("Order {order_id} is already fulfilled, skipping");
+        //     return Ok(Skip);
+        // }
 
         // Check that we have both enough staking tokens to stake, and enough gas tokens to lock and fulfil
         // NOTE: We use the current gas price and a rough heuristic on gas costs. Its possible that
@@ -421,8 +427,10 @@ where
             )
         };
         let order_gas_cost = U256::from(gas_price) * order_gas;
-        let available_gas = self.available_gas_balance().await?;
-        let available_stake = self.available_stake_balance().await?;
+
+        /// DEGEN MODE: We are using fixed gas and balance.
+        // let available_gas = self.available_gas_balance().await?;
+        // let available_stake = self.available_stake_balance().await?;
         tracing::debug!(
             "Estimated {order_gas} gas to {} order {order_id}; {} ether @ {} gwei",
             if lock_expired { "fulfill" } else { "lock and fulfill" },
@@ -441,17 +449,18 @@ where
             return Ok(Skip);
         }
 
-        if order_gas_cost > available_gas {
-            tracing::warn!("Estimated there will be insufficient gas for order {order_id} after locking and fulfilling pending orders; available_gas {} ether", format_ether(available_gas));
-            return Ok(Skip);
-        }
+        // if order_gas_cost > available_gas {
+        //     tracing::warn!("Estimated there will be insufficient gas for order {order_id} after locking and fulfilling pending orders; available_gas {} ether", format_ether(available_gas));
+        //     return Ok(Skip);
+        // }
 
-        if !lock_expired && lockin_stake > available_stake {
-            tracing::warn!(
-                "Insufficient available stake to lock order {order_id}. Requires {lockin_stake}, has {available_stake}"
-            );
-            return Ok(Skip);
-        }
+        // if !lock_expired && lockin_stake > available_stake {
+        //     // if !lock_expired && lockin_stake > available_stake {
+        //     tracing::warn!(
+        //         "Insufficient available stake to lock order {order_id}. Requires {lockin_stake}, has {available_stake}"
+        //     );
+        //     return Ok(Skip);
+        // }
 
         // Calculate exec limit (handles priority requestors and config internally)
         let (exec_limit_cycles, prove_limit) = self.calculate_exec_limits(order, order_gas_cost)?;
@@ -718,28 +727,29 @@ where
             return Ok(Skip);
         }
 
-        let target_timestamp_secs = if mcycle_price_min >= config_min_mcycle_price {
-            tracing::info!(
-                "Selecting order {order_id} at price {} - ASAP",
-                format_ether(U256::from(order.request.offer.minPrice))
-            );
-            0 // Schedule the lock ASAP
-        } else {
-            let target_min_price = config_min_mcycle_price
-                .saturating_mul(U256::from(proof_res.stats.total_cycles))
-                .div_ceil(ONE_MILLION)
-                + order_gas_cost;
-            tracing::debug!(
-                "Order {order_id} minimum profitable price: {} ETH",
-                format_ether(target_min_price)
-            );
+        let target_timestamp_secs = 0;
+        // let target_timestamp_secs = if  mcycle_price_min >= config_min_mcycle_price {
+        //     tracing::info!(
+        //         "Selecting order {order_id} at price {} - ASAP",
+        //         format_ether(U256::from(order.request.offer.minPrice))
+        //     );
+        //     0 // Schedule the lock ASAP
+        // } else {
+        //     let target_min_price = config_min_mcycle_price
+        //         .saturating_mul(U256::from(proof_res.stats.total_cycles))
+        //         .div_ceil(ONE_MILLION)
+        //         + order_gas_cost;
+        //     tracing::debug!(
+        //         "Order {order_id} minimum profitable price: {} ETH",
+        //         format_ether(target_min_price)
+        //     );
 
-            order
-                .request
-                .offer
-                .time_at_price(target_min_price)
-                .context("Failed to get target price timestamp")?
-        };
+        //     order
+        //         .request
+        //         .offer
+        //         .time_at_price(target_min_price)
+        //         .context("Failed to get target price timestamp")?
+        // };
 
         let expiry_secs = order.request.offer.biddingStart + order.request.offer.lockTimeout as u64;
 

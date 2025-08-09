@@ -133,8 +133,9 @@ where
                 .ok()
                 .and_then(|chain| chain.average_blocktime_hint())
                 .map(|block_time| block_time.mul_f32(0.6))
-                .unwrap_or(Duration::from_secs(2));
-
+                .unwrap_or(Duration::from_millis(500));
+            /// DEGEN MODE: We are using 500ms interval instead of 2 seconds.
+            // .unwrap_or(Duration::from_secs(2));
             loop {
                 tokio::select! {
                     // Wait for notification or handle cancellation
