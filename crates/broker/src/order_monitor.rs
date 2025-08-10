@@ -836,7 +836,7 @@ where
             tokio::time::Instant::now(),
             // tokio::time::Duration::from_secs(self.block_time),
             /// DEGEN MODE: We are using 500ms interval instead of 2 seconds.
-            tokio::time::Duration::from_millis(500),
+            tokio::time::Duration::from_millis(100),
         );
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
